@@ -1,4 +1,5 @@
 import random
+from typing import Tuple,List
 
 def pair_gcd(a: int, b: int) -> int:
     m,n=a,b    
@@ -55,6 +56,7 @@ def crt(a: list[int], n: list[int]) -> int:
     return x%prod
 
 def is_quadratic_residue_prime(a: int, p: int) -> int:
+    a%=p
     if(p==2): 
         return 1
     euler=pow(a,(p-1)//2,p)
@@ -153,13 +155,12 @@ def gen_prime(m: int) -> int:
         if is_prime(n):
             return n
         
-def gen_k_bit_prime(k: int) -> int :
-    lower=1<<(k-1)
-    upper=(1<<k)-1
+def gen_k_bit_prime(k: int) -> int:
     while True:
-        n = random.randint(lower,upper)
-        if n%2==0:
-            n+=1  #ensuring odd, makes it somewhat faster
+        n = random.getrandbits(k)
+        msb=1<<(k-1)
+        n=n|msb
+        n=n|1
         if is_prime(n):
             return n
 
@@ -216,7 +217,7 @@ class QuotientPolynomialRing:
         return res
 
     @staticmethod
-    def Add(poly1, poly2):
+    def Add(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing") -> "QuotientPolynomialRing":
         if poly1.pi_generator != poly2.pi_generator:
             raise Exception("Different pi_generators.")
         n = max(len(poly1.element),len(poly2.element))  # add and subtract methods are straightforward
@@ -228,7 +229,7 @@ class QuotientPolynomialRing:
         return QuotientPolynomialRing(ans, poly1.pi_generator)
 
     @staticmethod
-    def Sub(poly1, poly2):
+    def Sub(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing") -> "QuotientPolynomialRing":
         if poly1.pi_generator != poly2.pi_generator:
             raise Exception("Different pi_generators.")
         n = max(len(poly1.element), len(poly2.element))
@@ -240,7 +241,7 @@ class QuotientPolynomialRing:
         return QuotientPolynomialRing(ans, poly1.pi_generator)
 
     @staticmethod
-    def Mul(poly1,poly2):
+    def Mul(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing") -> "QuotientPolynomialRing":
         if poly1.pi_generator != poly2.pi_generator:
             raise Exception("Different pi_generators.")
         a = poly1.element
@@ -259,7 +260,7 @@ class QuotientPolynomialRing:
         return [p//c for p in P]
 
     @staticmethod
-    def GCD(poly1, poly2):
+    def GCD(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing") -> "QuotientPolynomialRing":
         if poly1.pi_generator != poly2.pi_generator:
             raise Exception("Different pi_generators.")
 
@@ -296,9 +297,8 @@ class QuotientPolynomialRing:
         return QuotientPolynomialRing(A, poly1.pi_generator)
 
     @staticmethod
-    def poly_xgcd(f, g):
-
-        def poly_rem(A ,B) :
+    def poly_xgcd(f: list[int], g: list[int]) -> Tuple[list[int], list[int], list[int]]:
+        def poly_rem(A: list[int], B: list[int]) -> list[int]:
             A = A[:]
             while A and A[-1] == 0:
                 A.pop()
@@ -363,7 +363,7 @@ class QuotientPolynomialRing:
             raise Exception("Not invertible")
         return QuotientPolynomialRing(s, poly.pi_generator)
             
-    
+ #hi nilabha, i have not corrected aks test    
 def aks_test(n: int) -> bool:
     #perfect power check
     if n < 2:
@@ -420,11 +420,6 @@ def aks_test(n: int) -> bool:
             b = poly_mul_mod(b, b)
             e >>= 1
         return res
-    #so the code runs and gives output uptil 7 digit prime numbers, if it is any more than that the code will not pass.
-    # since there is one composite testcase after the prime one, it would've never ran if i did not do this
-    #polynomial congruence checks
-    if(logn>25):
-        return is_prime(n)
     
     bound = floor_sqrt(euler_phi(r))*logn
     for a in range(1, int(bound) + 1):
@@ -441,5 +436,320 @@ def aks_test(n: int) -> bool:
 
     return True
 
+def get_generator(p: int) -> int:
+    if p == 2:
+        raise ValueError("No generator exists for p = 2")
+    phi= p-1
+    for g in range(2, p):
+        if not any(pow(g,phi//q,p) == 1 for q,a in factor(phi)):
+            return g
+    return -1 
 
+def order(g: int ,p: int)-> int:
+    r=p-1
+    for q,a in factor(p-1):
+        while r%q==0 and pow(g,r//q,p)==1:
+            r//=q
+    return r
 
+def discrete_log(x: int, g: int, p: int) -> int:
+    x%=p
+    r=order(g,p)
+    if pow(x,r,p)!=1:
+        raise Exception("x^order is not congruent to 1, discrete log DNE")
+    
+    m=int(r**0.5)+1
+    smol={}
+    cur=1   
+    for j in range(m):
+        if cur not in smol:
+            smol[cur] = j
+        cur=(cur*g)%p
+
+    ginv = pow(mod_inv(g,p),m,p)
+
+# look for x*(g^{–m})^i in the smol table
+    gamma=x
+    for i in range(m):
+        if gamma in smol:
+            return i*m+smol[gamma]
+        gamma=(gamma*ginv)%p
+
+    raise Exception("Discrete log not found")
+
+def legendre_symbol(a: int, p: int) -> int:
+    a%=p
+    if a==0:
+        return 0
+    return is_quadratic_residue_prime(a,p)
+
+def jacobi_symbol(a: int, n: int) -> int:
+    if n%2==0:
+        raise Exception("n must be a positive odd integer")
+    a%=n
+    if a==0:
+        return 0
+    if n==1:
+        return 1
+    res=1
+    for p,e in factor(n):
+        leg=legendre_symbol(a, p)
+        if leg==0:
+            return 0
+        # multiply in leg^e; since leg is +1 or -1, leg^e=leg iff e odd
+        if e%2 == 1:
+            res*=leg
+    return res
+
+def find_nonresidue(p: int)->int:
+    z=2
+    if(is_quadratic_residue_prime(z,p)!=1):
+        return z
+    while(True):    
+        z=random.randint(2,p)
+        if(is_quadratic_residue_prime(z,p)!=1):
+            return z
+
+def modular_sqrt_prime(x: int, p: int) -> int:
+    if x%p==0:
+        return 0
+    if p==2:
+        return x%p
+    if(is_quadratic_residue_prime(x,p)!=1):
+        raise Exception("square root does not exist")
+    else:
+        if(p%4==3):
+            ans=pow(x,(p+1)//4,p)
+            return min(ans,p-ans)
+        # we need to apply tonelli shanks now(taken from wiki)
+        Q=p-1
+        s=0
+        while(Q%2==0):
+            s+=1
+            Q//=2
+        z=find_nonresidue(p)
+        M=s
+        c=pow(z,Q,p)
+        t=pow(x,Q,p)
+        R=pow(x,(Q+1)//2,p)
+        while(t!=1):
+            i=0
+            temp=t
+            while(temp!=1):
+                i+=1
+                temp=(temp*temp)%p
+            pow2=2**(M-i-1)
+            b=pow(c,pow2,p)
+            M=i
+            c=(b*b)%p
+            t=(t*b*b)%p
+            R=(R*b)%p
+        ans=min(R,p-R) 
+        return ans
+
+def modular_sqrt_prime_power(x: int, p: int, e: int) -> int:
+    if x%p**e==0:
+        return 0
+    if e==1:
+        return modular_sqrt_prime(x, p)
+    
+    if is_quadratic_residue_prime_power(x,p,e) != 1:
+            raise Exception("square root does not exist")
+    
+    if p==2:
+        if e==2:
+            return 1
+        pe=1<<e
+        x=x%pe
+        root=-1
+        for y in range(1,pe,2):
+            if (y*y)%pe==x:
+                root=y
+                break
+        return root
+
+    r=modular_sqrt_prime(x%p,p)
+    mod=p
+    for i in range(1, e):
+        nextmod=mod*p
+        k=(r*r-x)//mod
+        # solve 2r*t=-k (mod p)
+        inv=mod_inv(2*r,p)
+        t=(-k*inv)%p
+        # lift
+        r=r+t*mod
+        mod=nextmod
+    
+    tmp = r%(p**e)
+    ans=min(tmp,p**e-tmp)
+    ans = int(ans)
+    return ans
+
+def modular_sqrt(x: int, n: int) -> int:
+    x %= n
+    if n==1:
+        return 0
+    facs=factor(n)  
+    listmod= []
+    mods= []
+    for p,e in facs:
+        pe = p**e
+        if x%pe == 0:
+            listmod.append([0])
+        elif is_quadratic_residue_prime_power(x, p, e) == -1:
+            raise Exception("No square root exists")
+        else:
+            r = modular_sqrt_prime_power(x, p, e)
+            listmod.append([r,(-r) % pe])
+        mods.append(pe)
+
+    allroots = []
+    def recurse(i: int, current: List[int]) -> int:
+        if i == len(listmod):
+            val = crt(current,mods) % n
+            allroots.append(val)
+            return 0
+        for r in listmod[i]:
+            recurse(i+1,current+[r])
+        return 0
+    
+    recurse(0,[])
+    return min(allroots)
+
+def is_smooth(m: int, y: int) -> bool:
+    if m<1:
+        raise Exception("m must be a positive integer")
+    if y<2:
+        raise Exception("y must be at least 2")
+    for p,e in factor(m):
+        if p>y:
+            return False
+    return True
+
+def probabilistic_factor(n: int) -> list[tuple[int,int]]:
+    if n<=1:
+        return []
+    #our prime getter
+    def primes_uptoy(y: int) -> list[int]:
+        return [i for i in range(2,y+1) if is_prime(i)]
+    #we factor m over a given list of (found)primes
+    def div_exp(m: int, primes:list[int]) -> list[int]:
+        exps=[]
+        for p in primes:
+            e=0
+            while m%p == 0:
+                m//=p
+                e+=1
+            exps.append(e)
+        return exps
+    #find F(2) dependency among vectors
+    def gf2_depend(vecs: list[list[int]]) -> list[int]:
+        N=len(vecs)
+        basis: list[tuple[list[int], list[int]]] = []
+        for i,v in enumerate(vecs):
+            mask=[0]*N
+            mask[i]=1
+            w = v[:]
+            for bvec,bmask in basis:
+                pivot = next((j for j, bit in enumerate(bvec) if bit),None)
+                if pivot is not None and w[pivot]:
+                    w = [w[j]^bvec[j] for j in range(len(w))]
+                    mask = [mask[j]^bmask[j] for j in range(N)]
+            if all(bit == 0 for bit in w):
+                return mask
+            basis.append((w,mask))
+        #we really should never get here if len(vecs)>dimension
+        return []
+
+    def sef_factor(m: int, y: int) -> int:
+        sprimes = primes_uptoy(y)
+        for p in sprimes:
+            if m%p == 0:
+                return p
+        k = len(sprimes)
+        while True:
+            try:
+                alphas,exponents,delta = [],[],None
+                # collect k+2 smooth relations according to shoup
+                for i in range(k+2):
+                    while True:
+                        a=random.randint(1,m-1)
+                        d=random.randint(1,m-1) if i == 0 else delta
+                        if d is not None:
+                            rep = (pow(a,2,m)*d)%m or m
+                        eis=div_exp(rep,sprimes)
+                        alphas.append(a)
+                        exponents.append(eis)
+                        if i==0:
+                            delta=d
+                        break
+                vs=[[e%2 for e in eis] + [1] for eis in exponents]
+                c=gf2_depend(vs)
+                # combine exponents
+                combined = [0]*(k+1)
+                for i,ci in enumerate(c):
+                    if ci:
+                        for j in range(k):
+                            combined[j]+=exponents[i][j]
+                        combined[k]+=1
+                # build alpha,beta
+                alpha=1
+                for a,ci in zip(alphas,c):
+                    if ci:
+                        alpha = (alpha*a)%m
+                beta=1
+                for j in range(k):
+                    beta=(beta*pow(sprimes[j],combined[j]//2,m))%m
+                t=combined[k]//2 
+                if t is None or delta is None or m is None:
+                    continue
+                deltap=pow(delta,t,m)
+                invdelta=mod_inv(deltap,m)
+                beta=(beta*invdelta)%m
+
+                invbeta=mod_inv(beta,m)
+                gamma=(alpha*invbeta)%m
+                if gamma not in (1,m-1):
+                    return gcd(gamma-1,m)
+                #else retry
+            except Exception:
+                continue
+
+    facs: dict[int,int] = {}
+    remaining=n
+    # we first strip factors of 2
+    cnt = 0
+    while (remaining&1) == 0:
+        remaining>>=1
+        cnt+=1
+    if cnt:
+        facs[2]=cnt
+
+    # if the number is a perfect power
+    if remaining>1 and is_perfect_power(remaining):
+        # find base,exp such that base**exp==remaining
+        maxb = remaining.bit_length()
+        for b in range(2,maxb+1):
+            a=int(round(remaining**(1.0/b)))
+            if a>1 and pow(a,b)==remaining:
+                base,exp = a,b
+                break
+        #we factor the base
+        for p,e in probabilistic_factor(base):
+            facs[p]=facs.get(p,0) + e*exp
+        return sorted(facs.items())
+
+    #prime case
+    if remaining>1 and is_prime(remaining):
+        facs[remaining] = facs.get(remaining,0)+1
+        return sorted(facs.items())
+
+    #extract via SEF and recurse
+    f=sef_factor(remaining,100)
+    g=remaining//f
+    for p,e in probabilistic_factor(f):
+        facs[p]=facs.get(p,0)+e
+    for p,e in probabilistic_factor(g):
+        facs[p]=facs.get(p,0)+e
+
+    return sorted(facs.items())
