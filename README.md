@@ -26,8 +26,8 @@
 #### gen_k_bit_prime(k: int) -> int : 
 #### factor(n: int) -> list[tuple[int, int]] :
 #### euler_phi(n: int) -> int : 
-#### Implement a class QuotientPolynomialRing. 
-#### An instance variable called pi_generator which would be the the "quotienting polynomial", and an instance variable called element to represent the element of the ring.
+#### Implemented a class QuotientPolynomialRing. 
+#### It contains an instance variable called pi_generator which would be the the "quotienting polynomial", and an instance variable called element to represent the element of the ring.
 #### __init__(self, poly: list[int], pi_gen: list[int]) -> None : 
 #### A static method Add(poly1: QuotientPolynomialRing, poly2: QuotientPolynomialRing) -> QuotientPolynomialRing
 #### A static method Sub(poly1: QuotientPolynomialRing, poly2: QuotientPolynomialRing) -> QuotientPolynomialRing  
